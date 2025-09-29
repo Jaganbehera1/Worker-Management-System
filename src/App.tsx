@@ -280,7 +280,7 @@ function App() {
               <Building2 className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Pramod Construction & Engineering</h1>
+              <h1 className="text-xl font-bold text-gray-900">Jagan Construction</h1>
               <p className="text-xs text-gray-600">
                 {user.role === 'admin' ? 'Admin Panel' : 'Viewer Mode'}
               </p>
@@ -379,7 +379,7 @@ function App() {
               {user.role === 'admin' ? 'Admin' : 'Viewer'}
             </span>
           </div>
-          <h1 className="text-lg font-semibold text-gray-900">Pramod Construction & Engineering</h1>
+          <h1 className="text-lg font-semibold text-gray-900">Jagan Construction</h1>
           <button
             onClick={handleLogout}
             className="text-gray-600 hover:text-gray-900 transition-colors duration-200"

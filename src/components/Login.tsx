@@ -33,7 +33,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="bg-blue-600 p-3 rounded-full w-16 h-16 mx-auto mb-4">
             <Building2 className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Digital Khata</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Jagan Constuction</h1>
           <p className="text-gray-600">Worker Management System</p>
         </div>
 
