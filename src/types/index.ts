@@ -60,16 +60,32 @@ export interface FuelRecord {
   description?: string;
   createdAt: string;
 }
+// Add to your existing types in types.ts
+export interface SalaryPayment {
+  id: string;
+  employeeId: string;
+  paymentDate: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+}
 
 export interface MonthlyReport {
   employeeId: string;
-  month: string; // YYYY-MM format
+  month: string;
   totalDaysWorked: number;
+  baseWages: number;
+  additionalEarnings: number; // Add this
   totalWagesEarned: number;
   totalAdvancesTaken: number;
+  totalSalaryPaid: number;
   finalAmount: number;
   attendanceDetails: AttendanceRecord[];
   advanceDetails: Advance[];
+  salaryPaymentDetails: SalaryPayment[];
+  otRecords: AttendanceRecord[]; // Add this
+  halfDayRecords: AttendanceRecord[]; // Add this
+  customPaymentRecords: AttendanceRecord[]; // Add this
 }
 // In your types file
 export interface AttendanceRecord {

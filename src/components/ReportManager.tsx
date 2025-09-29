@@ -1,8 +1,39 @@
 import React, { useState } from 'react';
-import { Employee, AttendanceRecord, Advance, MonthlyReport, SalaryPayment } from '../types';
-import { formatCurrency, getWeekStart } from '../utils/dateUtils';
+import { Employee, AttendanceRecord, Advance } from '../types';
+import { formatCurrency } from '../utils/dateUtils';
 import { FileText, Download, Calendar, User, IndianRupee, Clock, TrendingUp, TrendingDown, Search, Database } from 'lucide-react';
 import { useFirestore } from '../hooks/useFirestore';
+import { pdf } from '@react-pdf/renderer';
+import ProfessionalPayslipPDF from './ProfessionalPayslipPDF';
+
+// Define SalaryPayment type locally if not in types.ts
+interface SalaryPayment {
+  id: string;
+  employeeId: string;
+  paymentDate: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+}
+
+// Extended interface for our report
+interface ExtendedMonthlyReport {
+  employeeId: string;
+  month: string;
+  totalDaysWorked: number;
+  baseWages: number;
+  additionalEarnings: number;
+  totalWagesEarned: number;
+  totalAdvancesTaken: number;
+  totalSalaryPaid: number;
+  finalAmount: number;
+  attendanceDetails: AttendanceRecord[];
+  advanceDetails: Advance[];
+  salaryPaymentDetails: SalaryPayment[];
+  otRecords: AttendanceRecord[];
+  halfDayRecords: AttendanceRecord[];
+  customPaymentRecords: AttendanceRecord[];
+}
 
 interface ReportManagerProps {
   employees: Employee[];
@@ -19,21 +50,22 @@ const ReportManager: React.FC<ReportManagerProps> = ({
 }) => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>(
-    new Date().toISOString().slice(0, 7) // YYYY-MM format
+    new Date().toISOString().slice(0, 7)
   );
   const [searchTerm, setSearchTerm] = useState('');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Use Firestore for salary payments
   const { data: salaryPayments, loading: salaryPaymentsLoading } = useFirestore<SalaryPayment>('salaryPayments');
 
-  const generateMonthlyReport = (employeeId: string, month: string): MonthlyReport | null => {
+  const generateMonthlyReport = (employeeId: string, month: string): ExtendedMonthlyReport | null => {
     const employee = employees.find(e => e.id === employeeId);
     if (!employee) return null;
 
     const monthStart = new Date(month + '-01');
     const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
-    // Get attendance records for the month
+    // Get records for the month
     const monthAttendance = attendance.filter(a => {
       const attendanceDate = new Date(a.date);
       return a.employeeId === employeeId && 
@@ -41,7 +73,6 @@ const ReportManager: React.FC<ReportManagerProps> = ({
              attendanceDate <= monthEnd;
     });
 
-    // Get advance records for the month
     const monthAdvances = advances.filter(a => {
       const advanceDate = new Date(a.date);
       return a.employeeId === employeeId && 
@@ -49,7 +80,6 @@ const ReportManager: React.FC<ReportManagerProps> = ({
              advanceDate <= monthEnd;
     });
 
-    // Get salary payment records for the month
     const monthSalaryPayments = salaryPayments.filter(p => {
       const paymentDate = new Date(p.paymentDate);
       return p.employeeId === employeeId && 
@@ -57,34 +87,28 @@ const ReportManager: React.FC<ReportManagerProps> = ({
              paymentDate <= monthEnd;
     });
 
-    // Calculate totals with proper breakdown
+    // Calculate totals
     const totalDaysWorked = monthAttendance.filter(a => a.present).length;
     
     let baseWages = 0;
     let additionalEarnings = 0;
-    let totalWagesEarned = 0;
 
     monthAttendance.forEach(record => {
       if (record.present) {
-        // Base daily wage
         baseWages += employee.dailyWage;
       }
       
-      // Add custom amount (for OT, half-day, or custom payments)
       if (record.customAmount) {
         additionalEarnings += record.customAmount;
       }
     });
 
-    totalWagesEarned = baseWages + additionalEarnings;
-
+    const totalWagesEarned = baseWages + additionalEarnings;
     const totalAdvancesTaken = monthAdvances.reduce((sum, a) => sum + a.amount, 0);
     const totalSalaryPaid = monthSalaryPayments.reduce((sum, p) => sum + p.amount, 0);
-    
-    // Final amount calculation: Total wages - Advances - Salary already paid
     const finalAmount = totalWagesEarned - totalAdvancesTaken - totalSalaryPaid;
 
-    // Get detailed breakdown of additional earnings
+    // Categorize attendance records
     const otRecords = monthAttendance.filter(record => record.customType === 'ot');
     const halfDayRecords = monthAttendance.filter(record => record.customType === 'half-day');
     const customPaymentRecords = monthAttendance.filter(record => record.customType === 'custom');
@@ -108,22 +132,45 @@ const ReportManager: React.FC<ReportManagerProps> = ({
     };
   };
 
-  // Helper function to format balance with correct signs
   const formatBalance = (balance: number) => {
     if (balance === 0) return formatCurrency(0);
-    if (balance > 0) return `+${formatCurrency(balance)}`; // Employee is owed money
-    return `+${formatCurrency(Math.abs(balance))}`; // Company is owed money (overpaid)
+    if (balance > 0) return `+${formatCurrency(balance)}`;
+    return `-${formatCurrency(Math.abs(balance))}`;
   };
 
-  const filteredEmployees = employees.filter(employee =>
-    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    employee.designation.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const downloadPDF = async () => {
+    if (!monthlyReport || !selectedEmployeeData) return;
 
-  const selectedEmployeeData = selectedEmployee ? employees.find(e => e.id === selectedEmployee) : null;
-  const monthlyReport = selectedEmployee ? generateMonthlyReport(selectedEmployee, selectedMonth) : null;
+    setIsGeneratingPDF(true);
+    
+    try {
+      // Create the PDF document
+      const doc = <ProfessionalPayslipPDF employee={selectedEmployeeData} report={monthlyReport} />;
+      
+      // Generate PDF blob
+      const asPdf = pdf();
+      asPdf.updateContainer(doc);
+      const blob = await asPdf.toBlob();
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedEmployeeData.name.replace(/\s+/g, '_')}_${selectedMonth}_payslip.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
-  const downloadReport = () => {
+  const downloadTextReport = () => {
     if (!monthlyReport || !selectedEmployeeData) return;
 
     const reportContent = `
@@ -156,21 +203,6 @@ Less: Advances: ${formatCurrency(monthlyReport.totalAdvancesTaken)}
 Less: Salary Paid: ${formatCurrency(monthlyReport.totalSalaryPaid)}
 Final Amount: ${formatBalance(monthlyReport.finalAmount)}
 
-ATTENDANCE DETAILS:
-${monthlyReport.attendanceDetails.map(a => 
-  `${new Date(a.date).toLocaleDateString('en-IN')}: ${a.present ? 'Present' : 'Absent'}${a.customType ? ` (${a.customType})` : ''}${a.customAmount ? ` +${formatCurrency(a.customAmount)}` : ''}`
-).join('\n')}
-
-ADVANCE DETAILS:
-${monthlyReport.advanceDetails.map(a => 
-  `${new Date(a.date).toLocaleDateString('en-IN')}: ${formatCurrency(a.amount)} - ${a.description}`
-).join('\n')}
-
-SALARY PAYMENT DETAILS:
-${monthlyReport.salaryPaymentDetails.map(p => 
-  `${new Date(p.paymentDate).toLocaleDateString('en-IN')}: ${formatCurrency(p.amount)} - ${p.description}`
-).join('\n')}
-
 Generated on: ${new Date().toLocaleDateString('en-IN')}
     `;
 
@@ -178,12 +210,174 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedEmployeeData.name}_${selectedMonth}_payslip.txt`;
+    a.download = `${selectedEmployeeData.name.replace(/\s+/g, '_')}_${selectedMonth}_payslip.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  // Preview Component for display
+  const PayslipPreview: React.FC<{ employee: Employee; report: ExtendedMonthlyReport }> = ({ 
+    employee, 
+    report 
+  }) => {
+    const getMonthYear = (monthString: string) => {
+      return new Date(monthString + '-01').toLocaleDateString('en-IN', {
+        month: 'long',
+        year: 'numeric'
+      });
+    };
+
+    return (
+      <div className="bg-white p-6 max-w-4xl mx-auto border border-gray-200 rounded-lg">
+        {/* Header */}
+        <div className="border-b-2 border-gray-800 pb-4 mb-4">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Jagan Construction</h1>
+                <p className="text-gray-600 text-sm">Construction Site Office, Main Road</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <h2 className="text-2xl font-bold text-blue-600">PAYSLIP</h2>
+              <p className="text-gray-600 font-medium">{getMonthYear(report.month)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+            <p className="text-xs font-medium text-blue-600">Days Worked</p>
+            <p className="text-lg font-bold text-blue-900">{report.totalDaysWorked}</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+            <p className="text-xs font-medium text-green-600">Total Earnings</p>
+            <p className="text-lg font-bold text-green-900">{formatCurrency(report.totalWagesEarned)}</p>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+            <p className="text-xs font-medium text-orange-600">Advances</p>
+            <p className="text-lg font-bold text-orange-900">{formatCurrency(report.totalAdvancesTaken)}</p>
+          </div>
+          <div className={`rounded-lg p-3 border ${
+            report.finalAmount === 0 ? 'bg-green-50 border-green-200' :
+            report.finalAmount > 0 ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'
+          }`}>
+            <p className={`text-xs font-medium ${
+              report.finalAmount === 0 ? 'text-green-600' :
+              report.finalAmount > 0 ? 'text-blue-600' : 'text-yellow-600'
+            }`}>
+              Net Amount
+            </p>
+            <p className={`text-lg font-bold ${
+              report.finalAmount === 0 ? 'text-green-900' :
+              report.finalAmount > 0 ? 'text-blue-900' : 'text-yellow-900'
+            }`}>
+              {formatBalance(report.finalAmount)}
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Summary */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="font-semibold text-gray-700">Employee</p>
+              <p className="text-gray-600">{employee.name} - {employee.designation}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-700">Daily Wage</p>
+              <p className="text-gray-600">{formatCurrency(employee.dailyWage)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Earnings Summary */}
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Base Wages:</span>
+            <span className="font-medium text-green-600">+{formatCurrency(report.baseWages)}</span>
+          </div>
+          {report.additionalEarnings > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Additional Earnings:</span>
+              <span className="font-medium text-blue-600">+{formatCurrency(report.additionalEarnings)}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-gray-200 pt-2">
+            <span className="font-semibold text-gray-700">Total Earnings:</span>
+            <span className="font-semibold text-green-600">+{formatCurrency(report.totalWagesEarned)}</span>
+          </div>
+        </div>
+
+        {/* Deductions Summary */}
+        <div className="space-y-2 text-sm mt-4">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Advances Taken:</span>
+            <span className="font-medium text-orange-600">-{formatCurrency(report.totalAdvancesTaken)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Salary Paid:</span>
+            <span className="font-medium text-orange-600">-{formatCurrency(report.totalSalaryPaid)}</span>
+          </div>
+          <div className="flex justify-between border-t border-gray-200 pt-2">
+            <span className="font-semibold text-gray-700">Total Deductions:</span>
+            <span className="font-semibold text-orange-600">-{formatCurrency(report.totalAdvancesTaken + report.totalSalaryPaid)}</span>
+          </div>
+        </div>
+
+        {/* Final Amount */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mt-4 border-2 border-blue-200">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-lg text-gray-900">Net Payable Amount</h3>
+              <p className="text-gray-600 text-sm">Total Earnings - Total Deductions</p>
+            </div>
+            <div className="text-right">
+              <div className={`text-xl font-bold ${
+                report.finalAmount === 0 ? 'text-green-600' :
+                report.finalAmount > 0 ? 'text-blue-600' : 'text-yellow-600'
+              }`}>
+                {formatBalance(report.finalAmount)}
+              </div>
+              <p className={`text-xs font-medium mt-1 ${
+                report.finalAmount === 0 ? 'text-green-700' :
+                report.finalAmount > 0 ? 'text-blue-700' : 'text-yellow-700'
+              }`}>
+                {report.finalAmount === 0 ? '✓ Fully Paid' :
+                 report.finalAmount > 0 ? 'Balance Due to Employee' : 'Overpaid - Adjust in next month'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const filteredEmployees = employees.filter(employee =>
+    employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employee.designation.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedEmployeeData = selectedEmployee ? employees.find(e => e.id === selectedEmployee) : null;
+  const monthlyReport = selectedEmployee ? generateMonthlyReport(selectedEmployee, selectedMonth) : null;
+
+  // Show loading state
+  if (salaryPaymentsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading salary data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -199,7 +393,6 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Database Status Indicator */}
           <div className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
             <Database className="h-4 w-4" />
             Database Connected
@@ -313,189 +506,41 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
             <h3 className="text-lg font-semibold text-gray-900">
               Monthly Report - {selectedEmployeeData.name}
             </h3>
-            <button
-              onClick={downloadReport}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              Download Report
-            </button>
-          </div>
-
-          {/* Employee Info */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-4 mb-4">
-              {selectedEmployeeData.photo ? (
-                <img
-                  src={selectedEmployeeData.photo}
-                  alt={selectedEmployeeData.name}
-                  className="w-16 h-16 object-cover rounded-full border-2 border-gray-200"
-                />
-              ) : (
-                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
-                  <User className="h-8 w-8 text-indigo-600" />
-                </div>
-              )}
-              <div>
-                <h4 className="text-xl font-bold text-gray-900">{selectedEmployeeData.name}</h4>
-                <p className="text-gray-600">{selectedEmployeeData.designation}</p>
-                <p className="text-sm text-gray-500">Daily Wage: {formatCurrency(selectedEmployeeData.dailyWage)}</p>
-              </div>
-            </div>
-            <div className="text-center">
-              <h5 className="text-lg font-semibold text-gray-900">
-                Report for {new Date(selectedMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
-              </h5>
+            <div className="flex gap-3">
+              <button
+                onClick={downloadTextReport}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Download TXT
+              </button>
+              <button
+                onClick={downloadPDF}
+                disabled={isGeneratingPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="h-4 w-4" />
+                {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
+              </button>
             </div>
           </div>
 
-          {/* Earnings Breakdown */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-3">Payment Calculation</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Base Wages ({monthlyReport.totalDaysWorked} days × {formatCurrency(selectedEmployeeData.dailyWage)})</span>
-                <span className="font-medium text-green-600">+{formatCurrency(monthlyReport.baseWages)}</span>
-              </div>
-              
-              {monthlyReport.additionalEarnings > 0 && (
-                <>
-                  {monthlyReport.otRecords.length > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Overtime ({monthlyReport.otRecords.length} days)</span>
-                      <span className="font-medium text-blue-600">
-                        +{formatCurrency(monthlyReport.otRecords.reduce((sum, record) => sum + (record.customAmount || 0), 0))}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {monthlyReport.halfDayRecords.length > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Half Days ({monthlyReport.halfDayRecords.length} days)</span>
-                      <span className="font-medium text-orange-600">
-                        +{formatCurrency(monthlyReport.halfDayRecords.reduce((sum, record) => sum + (record.customAmount || 0), 0))}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {monthlyReport.customPaymentRecords.length > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Custom Payments ({monthlyReport.customPaymentRecords.length})</span>
-                      <span className="font-medium text-purple-600">
-                        +{formatCurrency(monthlyReport.customPaymentRecords.reduce((sum, record) => sum + (record.customAmount || 0), 0))}
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                    <span className="font-medium text-gray-900">Additional Earnings Total</span>
-                    <span className="font-medium text-blue-600">+{formatCurrency(monthlyReport.additionalEarnings)}</span>
-                  </div>
-                </>
-              )}
-              
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200 font-bold">
-                <span className="text-gray-900">Total Earnings</span>
-                <span className="text-green-600">+{formatCurrency(monthlyReport.totalWagesEarned)}</span>
-              </div>
-
-              {/* Deductions */}
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                <span className="text-gray-600">Advances Taken</span>
-                <span className="font-medium text-orange-600">-{formatCurrency(monthlyReport.totalAdvancesTaken)}</span>
-              </div>
-
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                <span className="text-gray-600">Salary Paid</span>
-                <span className="font-medium text-green-600">-{formatCurrency(monthlyReport.totalSalaryPaid)}</span>
-              </div>
-
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200 font-bold text-lg">
-                <span className="text-gray-900">Final Amount</span>
-                <span className={`${
-                  monthlyReport.finalAmount === 0 ? 'text-green-600' :
-                  monthlyReport.finalAmount > 0 ? 'text-blue-600' : 'text-yellow-600'
-                }`}>
-                  {formatBalance(monthlyReport.finalAmount)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-600">Days Worked</p>
-                  <p className="text-2xl font-bold text-blue-900">{monthlyReport.totalDaysWorked}</p>
-                </div>
-                <Clock className="h-8 w-8 text-blue-600" />
-              </div>
-            </div>
-
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-600">Total Wages</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {formatCurrency(monthlyReport.totalWagesEarned)}
-                  </p>
-                  {monthlyReport.additionalEarnings > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      +{formatCurrency(monthlyReport.additionalEarnings)} extra
-                    </p>
-                  )}
-                </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
-              </div>
-            </div>
-
-            <div className="bg-orange-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-orange-600">Advances Taken</p>
-                  <p className="text-2xl font-bold text-orange-900">
-                    {formatCurrency(monthlyReport.totalAdvancesTaken)}
-                  </p>
-                </div>
-                <TrendingDown className="h-8 w-8 text-orange-600" />
-              </div>
-            </div>
-
-            <div className={`rounded-lg p-4 ${
-              monthlyReport.finalAmount === 0 ? 'bg-green-50' :
-              monthlyReport.finalAmount > 0 ? 'bg-blue-50' : 'bg-yellow-50'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-sm font-medium ${
-                    monthlyReport.finalAmount === 0 ? 'text-green-600' :
-                    monthlyReport.finalAmount > 0 ? 'text-blue-600' : 'text-yellow-600'
-                  }`}>
-                    {monthlyReport.finalAmount === 0 ? 'Fully Paid' :
-                     monthlyReport.finalAmount > 0 ? 'Balance Due' : 'Overpaid'}
-                  </p>
-                  <p className={`text-2xl font-bold ${
-                    monthlyReport.finalAmount === 0 ? 'text-green-900' :
-                    monthlyReport.finalAmount > 0 ? 'text-blue-900' : 'text-yellow-900'
-                  }`}>
-                    {formatBalance(monthlyReport.finalAmount)}
-                  </p>
-                </div>
-                <IndianRupee className={`h-8 w-8 ${
-                  monthlyReport.finalAmount === 0 ? 'text-green-600' :
-                  monthlyReport.finalAmount > 0 ? 'text-blue-600' : 'text-yellow-600'
-                }`} />
-              </div>
-            </div>
+          {/* Preview of PDF Content */}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 mb-6 bg-gray-50">
+            <h4 className="font-semibold text-gray-700 mb-3">Payslip Preview</h4>
+            <PayslipPreview 
+              employee={selectedEmployeeData} 
+              report={monthlyReport} 
+            />
           </div>
 
           {/* Detailed Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="mt-6">
+            <h4 className="font-semibold text-gray-700 mb-4">Detailed Breakdown</h4>
+            
             {/* Attendance Details */}
-            <div>
-              <h4 className="font-medium text-gray-900 mb-3">Attendance Details</h4>
+            <div className="mb-6">
+              <h5 className="font-medium text-gray-900 mb-3">Attendance Details ({monthlyReport.attendanceDetails.length} records)</h5>
               <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
                 {monthlyReport.attendanceDetails.length > 0 ? (
                   <div className="divide-y divide-gray-200">
@@ -503,11 +548,7 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
                       <div key={record.id} className="p-3 flex justify-between items-center">
                         <div>
                           <span className="font-medium">
-                            {new Date(record.date).toLocaleDateString('en-IN', {
-                              weekday: 'short',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
+                            {new Date(record.date).toLocaleDateString('en-IN')}
                           </span>
                           {record.customType && (
                             <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
@@ -539,8 +580,8 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
             </div>
 
             {/* Advance Details */}
-            <div>
-              <h4 className="font-medium text-gray-900 mb-3">Advance Details</h4>
+            <div className="mb-6">
+              <h5 className="font-medium text-gray-900 mb-3">Advance Details ({monthlyReport.advanceDetails.length} records)</h5>
               <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
                 {monthlyReport.advanceDetails.length > 0 ? (
                   <div className="divide-y divide-gray-200">
@@ -549,11 +590,7 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
                         <div className="flex justify-between items-start">
                           <div>
                             <span className="font-medium">
-                              {new Date(advance.date).toLocaleDateString('en-IN', {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric'
-                              })}
+                              {new Date(advance.date).toLocaleDateString('en-IN')}
                             </span>
                             <p className="text-sm text-gray-600">{advance.description}</p>
                           </div>
@@ -574,7 +611,7 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
 
             {/* Salary Payment Details */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">Salary Payments</h4>
+              <h5 className="font-medium text-gray-900 mb-3">Salary Payments ({monthlyReport.salaryPaymentDetails.length} records)</h5>
               <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
                 {monthlyReport.salaryPaymentDetails.length > 0 ? (
                   <div className="divide-y divide-gray-200">
@@ -583,11 +620,7 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
                         <div className="flex justify-between items-start">
                           <div>
                             <span className="font-medium">
-                              {new Date(payment.paymentDate).toLocaleDateString('en-IN', {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric'
-                              })}
+                              {new Date(payment.paymentDate).toLocaleDateString('en-IN')}
                             </span>
                             <p className="text-sm text-gray-600">{payment.description}</p>
                           </div>
