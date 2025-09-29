@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Vehicle, FuelRecord } from '../types';
 import { formatCurrency } from '../utils/dateUtils';
-import { Truck, Plus, Fuel, Calendar, IndianRupee, CreditCard as Edit2, Trash2, Search } from 'lucide-react';
+import { Truck, Plus, Fuel, CreditCard as Edit2, Trash2, Search } from 'lucide-react';
 
 interface VehicleManagerProps {
   vehicles: Vehicle[];
@@ -22,7 +22,6 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({
 }) => {
   const [showAddVehicleForm, setShowAddVehicleForm] = useState(false);
   const [showAddFuelForm, setShowAddFuelForm] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   
   const [vehicleFormData, setVehicleFormData] = useState({
@@ -211,22 +210,6 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fuel Amount (Liters)
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="0.1"
-                  value={fuelFormData.fuelAmount}
-                  onChange={(e) => setFuelFormData({ ...fuelFormData, fuelAmount: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter fuel amount"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fuel Cost (₹)
                 </label>
                 <input
@@ -323,10 +306,6 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({
                 <h4 className="font-medium text-gray-900 text-sm mb-2">This Month</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-600">Total Fuel:</span>
-                    <p className="font-medium text-blue-600">{fuelSummary.totalFuel.toFixed(1)}L</p>
-                  </div>
-                  <div>
                     <span className="text-gray-600">Total Cost:</span>
                     <p className="font-medium text-green-600">{formatCurrency(fuelSummary.totalCost)}</p>
                   </div>
@@ -343,12 +322,6 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {vehicleFuelRecords.slice(0, 3).map((record) => (
                     <div key={record.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
-                      <div>
-                        <span className="font-medium">{record.fuelAmount}L</span>
-                        <p className="text-xs text-gray-600">
-                          {new Date(record.date).toLocaleDateString('en-IN')}
-                        </p>
-                      </div>
                       <div className="text-right">
                         <span className="font-medium text-green-600">{formatCurrency(record.fuelCost)}</span>
                         {userRole === 'admin' && (
@@ -409,7 +382,6 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({
                 <tr>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Vehicle</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Date</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-900">Fuel (L)</th>
                   <th className="text-right py-3 px-4 font-medium text-gray-900">Cost</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-900">Description</th>
                   {userRole === 'admin' && (
@@ -436,9 +408,6 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({
                             month: 'short',
                             day: 'numeric'
                           })}
-                        </td>
-                        <td className="py-3 px-4 text-center font-medium">
-                          {record.fuelAmount.toFixed(1)}L
                         </td>
                         <td className="py-3 px-4 text-right font-medium text-green-600">
                           {formatCurrency(record.fuelCost)}

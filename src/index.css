@@ -1,3 +1,124 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Add these custom styles below the Tailwind directives */
+
+/* Gradient Background Animation */
+.gradient-bg-animated {
+  background: linear-gradient(-45deg, #1e3a8a, #3b82f6, #6366f1, #7c3aed);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glass Effects */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.input-glass {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: all 0.3s ease;
+}
+
+.input-glass:focus {
+  background: rgba(255,255,255,0.18);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.4);
+}
+
+.btn-glow {
+  box-shadow: 0 4px 15px rgba(255,255,255,0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-glow:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(255,255,255,0.4);
+  transform: translateY(-2px);
+}
+
+/* Floating Animations */
+.floating { 
+  animation: floating 6s ease-in-out infinite; 
+}
+
+@keyframes floating { 
+  0% { transform: translate(0,0); } 
+  50% { transform: translate(0,15px); } 
+  100% { transform: translate(0,-0px); } 
+}
+
+.pulse { 
+  animation: pulse 2s ease-in-out infinite alternate; 
+}
+
+@keyframes pulse { 
+  0% { transform: scale(1); } 
+  100% { transform: scale(1.05); } 
+}
+
+/* Particles */
+.particle {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 50%;
+  animation: floatParticle 8s ease-in-out infinite;
+}
+
+@keyframes floatParticle {
+  0%,100% { transform: translateY(0) rotate(0deg); opacity:0; }
+  10% { opacity:0.3; }
+  50% { transform: translateY(-100px) rotate(180deg); opacity:0.6; }
+  90% { opacity:0.3; }
+}
+
+/* Scrollbar */
+.scroll-container { 
+  max-height: 90vh; 
+  overflow-y: auto; 
+  scrollbar-width: thin; 
+  scrollbar-color: rgba(255,255,255,0.3) transparent; 
+}
+
+.scroll-container::-webkit-scrollbar { 
+  width: 6px; 
+}
+
+.scroll-container::-webkit-scrollbar-track { 
+  background: transparent; 
+}
+
+.scroll-container::-webkit-scrollbar-thumb { 
+  background-color: rgba(255,255,255,0.3); 
+  border-radius: 20px; 
+}
+
+.scroll-container::-webkit-scrollbar-thumb:hover { 
+  background-color: rgba(255,255,255,0.5); 
+}
+
+/* Animation delays for multiple floating elements */
+.animation-delay-1000 {
+  animation-delay: 1s;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-3000 {
+  animation-delay: 3s;
+}
