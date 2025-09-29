@@ -22,7 +22,10 @@ import {
   Menu, 
   X,
   Building2,
-  LogOut
+  LogOut,
+  Phone,
+  Mail,
+  MapPin
 } from 'lucide-react';
 
 function App() {
@@ -46,9 +49,7 @@ function App() {
     setUser(null);
   };
 
-  // If your useFirestore.addItem requires createdAt (Omit<T,'id'>),
-  // we add createdAt here to satisfy the type. If not needed in your hook,
-  // the extra field will be ignored by Firestore if your backend doesn't store it.
+  // Your existing handler functions remain the same...
   const handleAddEmployee = (employeeData: Omit<Employee, 'id' | 'createdAt'>) => {
     if (user?.role !== 'admin') return;
     const newEmployee: Omit<Employee, 'id'> = {
@@ -71,10 +72,8 @@ function App() {
     );
 
     if (existingRecord && existingRecord.id) {
-      // safe: existingRecord.id is string
       updateAttendanceRecord(existingRecord.id, { present, late: false });
     } else {
-      // use Omit so we don't require id when creating
       const newRecord: Omit<AttendanceRecord, 'id'> = {
         employeeId,
         date,
@@ -167,6 +166,107 @@ function App() {
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'vehicles', label: 'Vehicles', icon: Truck },
   ];
+
+  // Header Component
+  const Header = () => (
+    <header className="bg-white shadow-sm border-b border-gray-200">
+      <div className="px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 capitalize">
+              {activeTab === 'dashboard' ? 'Overview' : 
+               activeTab === 'employees' ? 'Employee Management' :
+               activeTab === 'attendance' ? 'Attendance Tracking' :
+               activeTab === 'advances' ? 'Advance Management' :
+               activeTab === 'payments' ? 'Payment Processing' :
+               activeTab === 'reports' ? 'Reports & Analytics' :
+               activeTab === 'vehicles' ? 'Vehicle Management' : 'Dashboard'}
+            </h1>
+            <p className="text-gray-600 text-sm mt-1">
+              {user?.role === 'admin' ? 'Administrator Panel' : 'Viewer Mode'} • {new Date().toLocaleDateString('en-IN', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Total Employees</p>
+              <p className="text-lg font-semibold text-gray-900">{employees.length}</p>
+            </div>
+            <div className="w-px h-8 bg-gray-300"></div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Active This Week</p>
+              <p className="text-lg font-semibold text-green-600">
+                {attendance.filter(a => a.present).length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+
+  // Footer Component
+  const Footer = () => (
+    <footer className="bg-gray-800 text-white mt-auto">
+      <div className="px-6 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Jagan Construction
+            </h3>
+            <p className="text-gray-300 text-sm">
+              Comprehensive construction management system for efficient workforce, 
+              vehicle, and financial management.
+            </p>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-4">Contact Information</h4>
+            <div className="space-y-2 text-sm text-gray-300">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                <span>jaganbehera63@gmail.com</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 mt-0.5" />
+                <span>Patia, Bhubaneswar, Odisha - 751024</span>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-4">Quick Stats</h4>
+            <div className="space-y-2 text-sm text-gray-300">
+              <div className="flex justify-between">
+                <span>Total Workers:</span>
+                <span className="font-medium">{employees.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Vehicles:</span>
+                <span className="font-medium">{vehicles.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Active Session:</span>
+                <span className="font-medium capitalize">{user?.role}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="border-t border-gray-700 mt-6 pt-6 text-center">
+          <p className="text-gray-400 text-sm">
+            © {new Date().getFullYear()} Jagan Construction. All rights reserved. | 
+            Built with React & Firebase
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
 
   const renderContent = () => {
     switch (activeTab) {
@@ -270,7 +370,7 @@ function App() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - remains the same */}
       <div className={`fixed left-0 top-0 h-full bg-white shadow-xl border-r border-gray-200 z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } w-64`}>
@@ -360,7 +460,7 @@ function App() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Area with Header and Footer */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
@@ -389,10 +489,18 @@ function App() {
           </button>
         </div>
 
+        {/* Desktop Header */}
+        <div className="hidden lg:block">
+          <Header />
+        </div>
+
         {/* Content Area */}
-        <main className="flex-1 p-4 lg:p-8 overflow-auto">
+        <main className="flex-1 p-4 lg:p-6 overflow-auto bg-gray-50">
           {renderContent()}
         </main>
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );

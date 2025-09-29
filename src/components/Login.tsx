@@ -12,8 +12,7 @@ import {
   collection, 
   query, 
   where, 
-  getDocs,
-  onSnapshot 
+  getDocs
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase'; // You'll need to create this config file
 
