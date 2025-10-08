@@ -287,7 +287,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <Building2 className="text-white w-10 h-10" />
             </div>
             <h1 className="text-4xl font-bold text-white mb-2">Welcome Back</h1>
-            <p className="text-white text-opacity-80 text-lg">Sign in to Jagan Construction</p>
+            <p className="text-white text-opacity-80 text-lg">Sign in to JJ Construction</p>
           </div>
 
           {/* Login Form */}
@@ -372,7 +372,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {/* Footer */}
           <div className="mt-8 text-center pt-5 border-t border-white border-opacity-10">
             <p className="text-white text-opacity-60 text-sm">
-              © 2025 Jagan Construction. Secure Workforce Management
+              © 2025 JJ Construction. Secure Workforce Management
             </p>
           </div>
         </div>

@@ -15,7 +15,7 @@ const Footer: React.FC = () => {
               <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-lg">
                 <Code className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-lg font-bold">Jagan Construction</h3>
+              <h3 className="text-lg font-bold">JJ Construction</h3>
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">
               Professional workforce management system designed to streamline 
@@ -68,7 +68,7 @@ const Footer: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             {/* Copyright */}
             <div className="flex items-center space-x-2 text-gray-400 text-sm">
-              <span>© {currentYear} Jagan Construction. All rights reserved.</span>
+              <span>© {currentYear} JJ Construction. All rights reserved.</span>
             </div>
 
             {/* Crafted by section */}
@@ -98,7 +98,7 @@ const Footer: React.FC = () => {
         <div className="border-t border-gray-700 pt-6 mt-6 md:hidden">
           <div className="text-center space-y-4">
             <div className="text-gray-400 text-sm">
-              © {currentYear} Jagan Construction. All rights reserved.
+              © {currentYear} JJ Construction. All rights reserved.
             </div>
             
             <div className="flex items-center justify-center space-x-2 text-gray-300 text-sm">

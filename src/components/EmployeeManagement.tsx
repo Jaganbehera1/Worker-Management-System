@@ -51,17 +51,18 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Form submitted with data:', formData);
-    console.log('Photo preview:', photoPreview ? 'Photo selected' : 'No photo');
-    
+    // Validation
+    if (!formData.name.trim() || !formData.designation.trim() || !formData.contactNumber.trim()) {
+      alert('Please fill in all required fields');
+      return;
+    }
+  
     try {
-      console.log('Adding employee with data:', { ...formData, photo: photoPreview });
       await onAddEmployee({
         ...formData,
-        photo: photoPreview
+        photo: photoPreview,
+        createdAt: new Date().toISOString() // This is the key fix
       });
-      
-      console.log('Employee added successfully');
       
       // Reset form
       setFormData({ name: '', designation: '', contactNumber: '', dailyWage: 500 });
@@ -211,7 +212,7 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="text-center mb-6">
               {selectedEmployee.photo ? (
                 <img
@@ -240,11 +241,14 @@ const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
               <div className="flex justify-between">
                 <span className="text-gray-600">Joined:</span>
                 <span className="font-medium">
-                  {new Date(selectedEmployee.createdAt).toLocaleDateString('en-IN')}
+                  {selectedEmployee.createdAt ? 
+                    new Date(selectedEmployee.createdAt).toLocaleDateString('en-IN') : 
+                    'Date not available'
+                  }
                 </span>
               </div>
             </div>
-            
+                
             {userRole === 'admin' && (
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <button

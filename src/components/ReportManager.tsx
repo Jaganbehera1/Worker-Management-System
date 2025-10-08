@@ -239,7 +239,7 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
                 <FileText className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Jagan Construction</h1>
+                <h1 className="text-xl font-bold text-gray-900">JJ Construction</h1>
                 <p className="text-gray-600 text-sm">Construction Site Office, Main Road</p>
               </div>
             </div>
