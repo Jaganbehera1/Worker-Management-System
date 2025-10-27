@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Employee, AttendanceRecord, Advance } from '../types';
 import { formatCurrency } from '../utils/dateUtils';
-import { FileText, Download, Calendar, User, IndianRupee, Clock, TrendingUp, TrendingDown, Search, Database } from 'lucide-react';
+import { FileText, Download, Calendar, User, Search, Database } from 'lucide-react';
 import { useFirestore } from '../hooks/useFirestore';
 import { pdf } from '@react-pdf/renderer';
 import ProfessionalPayslipPDF from './ProfessionalPayslipPDF';
@@ -52,6 +52,7 @@ const ReportManager: React.FC<ReportManagerProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<string>(
     new Date().toISOString().slice(0, 7)
   );
+  const [includeAllHistory, setIncludeAllHistory] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
@@ -61,31 +62,41 @@ const ReportManager: React.FC<ReportManagerProps> = ({
   const generateMonthlyReport = (employeeId: string, month: string): ExtendedMonthlyReport | null => {
     const employee = employees.find(e => e.id === employeeId);
     if (!employee) return null;
+    let monthAttendance: AttendanceRecord[] = [];
+    let monthAdvances: Advance[] = [];
+    let monthSalaryPayments: SalaryPayment[] = [];
 
-    const monthStart = new Date(month + '-01');
-    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    if (includeAllHistory) {
+      // Use all history for the employee
+      monthAttendance = attendance.filter(a => a.employeeId === employeeId);
+      monthAdvances = advances.filter(a => a.employeeId === employeeId);
+      monthSalaryPayments = salaryPayments.filter(p => p.employeeId === employeeId);
+    } else {
+      const monthStart = new Date(month + '-01');
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
 
-    // Get records for the month
-    const monthAttendance = attendance.filter(a => {
-      const attendanceDate = new Date(a.date);
-      return a.employeeId === employeeId && 
-             attendanceDate >= monthStart && 
-             attendanceDate <= monthEnd;
-    });
+      // Get records for the month
+      monthAttendance = attendance.filter(a => {
+        const attendanceDate = new Date(a.date);
+        return a.employeeId === employeeId && 
+               attendanceDate >= monthStart && 
+               attendanceDate <= monthEnd;
+      });
 
-    const monthAdvances = advances.filter(a => {
-      const advanceDate = new Date(a.date);
-      return a.employeeId === employeeId && 
-             advanceDate >= monthStart && 
-             advanceDate <= monthEnd;
-    });
+      monthAdvances = advances.filter(a => {
+        const advanceDate = new Date(a.date);
+        return a.employeeId === employeeId && 
+               advanceDate >= monthStart && 
+               advanceDate <= monthEnd;
+      });
 
-    const monthSalaryPayments = salaryPayments.filter(p => {
-      const paymentDate = new Date(p.paymentDate);
-      return p.employeeId === employeeId && 
-             paymentDate >= monthStart && 
-             paymentDate <= monthEnd;
-    });
+      monthSalaryPayments = salaryPayments.filter(p => {
+        const paymentDate = new Date(p.paymentDate);
+        return p.employeeId === employeeId && 
+               paymentDate >= monthStart && 
+               paymentDate <= monthEnd;
+      });
+    }
 
     // Calculate totals
     const totalDaysWorked = monthAttendance.filter(a => a.present).length;
@@ -422,6 +433,16 @@ Generated on: ${new Date().toLocaleDateString('en-IN')}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
+            <div className="flex items-center gap-2 mt-2 text-sm">
+              <input
+                id="includeAllHistory"
+                type="checkbox"
+                checked={includeAllHistory}
+                onChange={(e) => setIncludeAllHistory(e.target.checked)}
+                className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+              />
+              <label htmlFor="includeAllHistory" className="text-gray-600">Include all history (show all-time totals)</label>
+            </div>
           </div>
 
           {/* Search Box */}
