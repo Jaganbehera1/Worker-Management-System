@@ -22,7 +22,8 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [showPaymentForm, setShowPaymentForm] = useState<boolean>(false);
   const [paymentDescription, setPaymentDescription] = useState<string>('Salary Payment');
-  const [includeAllHistory, setIncludeAllHistory] = useState<boolean>(false);
+  // Payment Management default: show all-time totals. Admin can toggle to week-scoped view.
+  const [includeAllHistory, setIncludeAllHistory] = useState<boolean>(true);
   
   // Use Firestore for salary payments
   const { data: salaryPayments, addItem: addSalaryPayment, loading: salaryPaymentsLoading } = useFirestore<SalaryPayment>('salaryPayments');
@@ -101,9 +102,10 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
       baseWages,
       additionalEarnings,
       totalWages,
-      weekAdvances: weekAdvancesTotal,
+      // totals in the selected scope (week or all-history)
+      advancesTotal: advancesTotal,
+      salaryPaymentsTotal: salaryPaymentsTotal,
       finalPayment,
-      weekSalaryPayments: weekSalaryPaymentsTotal,
       remainingBalance,
       advances: advances.filter(a => a.employeeId === employeeId), // all advance entries (for list)
       salaryPayments: salaryPayments.filter(p => p.employeeId === employeeId), // all payments (for history)
@@ -265,9 +267,9 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
                 <div className="mt-2 text-xs text-gray-500">
                   {paymentData.daysWorked} days + {paymentData.additionalEarnings > 0 ? formatCurrency(paymentData.additionalEarnings) + ' extra' : 'no extras'}
                 </div>
-                {paymentData.weekSalaryPayments > 0 && (
+                {paymentData.salaryPaymentsTotal > 0 && (
                   <div className="mt-1 text-xs text-green-600">
-                    Paid: {formatCurrency(paymentData.weekSalaryPayments)}
+                    Paid: {formatCurrency(paymentData.salaryPaymentsTotal)}
                   </div>
                 )}
               </button>
@@ -301,11 +303,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
             <div className="flex items-center gap-4">
               <div className="text-sm text-gray-600 flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                Week of {new Date(getCurrentWeek()).toLocaleDateString('en-IN', { 
-                  month: 'long', 
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
+                {includeAllHistory ? 'All time' : `Week of ${new Date(getCurrentWeek()).toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}`}
               </div>
               
               {/* Record Payment Button - Now it will always show for admin */}
@@ -330,7 +328,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
                 <div>
                   <h4 className="font-semibold text-green-800">Fully Paid</h4>
                   <p className="text-green-700 text-sm">
-                    This employee has been fully paid for this week. Total payment: {formatCurrency(selectedEmployeeData.weekSalaryPayments)}
+                    This employee has been fully paid for the selected scope. Total payment: {formatCurrency(selectedEmployeeData.salaryPaymentsTotal)}
                   </p>
                 </div>
               </div>
@@ -481,7 +479,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
               {/* Deductions */}
               <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                 <span className="text-gray-600">Advances Taken</span>
-                <span className="font-medium text-orange-600">-{formatCurrency(selectedEmployeeData.weekAdvances)}</span>
+                <span className="font-medium text-orange-600">-{formatCurrency(selectedEmployeeData.advancesTotal)}</span>
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-gray-200 font-bold">
@@ -490,11 +488,11 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
               </div>
 
               {/* Salary Payments */}
-              {selectedEmployeeData.weekSalaryPayments > 0 && (
+              {selectedEmployeeData.salaryPaymentsTotal > 0 && (
                 <>
                   <div className="flex justify-between items-center pt-2 border-t border-gray-200">
                     <span className="text-gray-600">Salary Paid</span>
-                    <span className="font-medium text-green-600">-{formatCurrency(selectedEmployeeData.weekSalaryPayments)}</span>
+                    <span className="font-medium text-green-600">-{formatCurrency(selectedEmployeeData.salaryPaymentsTotal)}</span>
                   </div>
 
                   <div className="flex justify-between items-center pt-2 border-t border-gray-200 font-bold text-lg">
@@ -533,7 +531,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
                 <div>
                   <p className="text-sm font-medium text-orange-600">Total Advances</p>
                   <p className="text-2xl font-bold text-orange-900">
-                    {formatCurrency(selectedEmployeeData.weekAdvances)}
+                    {formatCurrency(selectedEmployeeData.advancesTotal)}
                   </p>
                   <p className="text-xs text-orange-600 mt-1">
                     {selectedEmployeeData.advances.length} advance(s) total
@@ -548,7 +546,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
                 <div>
                   <p className="text-sm font-medium text-green-600">Total Salary Paid</p>
                   <p className="text-2xl font-bold text-green-900">
-                    {formatCurrency(selectedEmployeeData.weekSalaryPayments)}
+                    {formatCurrency(selectedEmployeeData.salaryPaymentsTotal)}
                   </p>
                   <p className="text-xs text-green-600 mt-1">
                     {selectedEmployeeData.salaryPayments.length} payment(s) total
@@ -685,12 +683,12 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
                     </td>
                     <td className="py-3 px-4 text-right">
                       <span className="font-medium text-orange-600">
-                        {formatCurrency(paymentData.weekAdvances)}
+                        {formatCurrency(paymentData.advancesTotal)}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
                       <span className="font-medium text-green-600">
-                        {formatCurrency(paymentData.weekSalaryPayments)}
+                        {formatCurrency(paymentData.salaryPaymentsTotal)}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
