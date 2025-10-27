@@ -68,6 +68,7 @@ export interface SalaryPayment {
   amount: number;
   description: string;
   createdAt: string;
+  weekStart?: string; // Optional weekStart for reporting (e.g. Monday of the week)
 }
 
 export interface MonthlyReport {

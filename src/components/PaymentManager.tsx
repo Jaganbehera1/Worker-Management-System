@@ -22,6 +22,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
   const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [showPaymentForm, setShowPaymentForm] = useState<boolean>(false);
   const [paymentDescription, setPaymentDescription] = useState<string>('Salary Payment');
+  const [includeAllHistory, setIncludeAllHistory] = useState<boolean>(false);
   
   // Use Firestore for salary payments
   const { data: salaryPayments, addItem: addSalaryPayment, loading: salaryPaymentsLoading } = useFirestore<SalaryPayment>('salaryPayments');
@@ -29,7 +30,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
   const calculateEmployeePayment = (employeeId: string) => {
     const currentWeek = getCurrentWeek();
     const employee = employees.find(e => e.id === employeeId);
-    
+
     if (!employee) return null;
 
     // Get all attendance records for the current week
@@ -60,21 +61,34 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
 
     totalWages = baseWages + additionalEarnings;
     
-    // 🚨 CRITICAL FIX: Calculate ALL advances (not just current week)
-    const allAdvances = advances
+    // By default we scope advances / payments to the current week to avoid
+    // surprising global balance shifts when older payments/advances exist.
+    // Admin can toggle `includeAllHistory` to view global balances.
+    const weekAdvancesTotal = advances
+      .filter(a => a.employeeId === employeeId && getWeekStart(new Date(a.date)) === currentWeek)
+      .reduce((sum, a) => sum + a.amount, 0);
+
+    const weekSalaryPaymentsTotal = salaryPayments
+      .filter(p => p.employeeId === employeeId && getWeekStart(new Date(p.paymentDate)) === currentWeek)
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    // If includeAllHistory is true, aggregate across entire history instead.
+    const allAdvancesTotal = advances
       .filter(a => a.employeeId === employeeId)
       .reduce((sum, a) => sum + a.amount, 0);
-    
-    // 🚨 CRITICAL FIX: Calculate ALL salary payments (not just current week)
-    const allSalaryPayments = salaryPayments
+
+    const allSalaryPaymentsTotal = salaryPayments
       .filter(p => p.employeeId === employeeId)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    // CORRECTED: Final payment = Total wages - ALL Advances
-    const finalPayment = totalWages - allAdvances;
+    const advancesTotal = includeAllHistory ? allAdvancesTotal : weekAdvancesTotal;
+    const salaryPaymentsTotal = includeAllHistory ? allSalaryPaymentsTotal : weekSalaryPaymentsTotal;
 
-    // 🚨 CRITICAL FIX: Remaining balance = Final payment - ALL Salary payments
-    const remainingBalance = finalPayment - allSalaryPayments;
+    // Final payment = Total wages - advances (in selected scope)
+    const finalPayment = totalWages - advancesTotal;
+
+    // Remaining balance = Final payment - salary payments (in selected scope)
+    const remainingBalance = finalPayment - salaryPaymentsTotal;
     
     // Get OT and custom details (for current week only)
     const otRecords = weekRecords.filter(record => record.customType === 'ot');
@@ -87,12 +101,12 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
       baseWages,
       additionalEarnings,
       totalWages,
-      weekAdvances: allAdvances, // Now shows all advances
+      weekAdvances: weekAdvancesTotal,
       finalPayment,
-      weekSalaryPayments: allSalaryPayments, // Now shows all salary payments
+      weekSalaryPayments: weekSalaryPaymentsTotal,
       remainingBalance,
-      advances: advances.filter(a => a.employeeId === employeeId), // All advances
-      salaryPayments: salaryPayments.filter(p => p.employeeId === employeeId), // All salary payments
+      advances: advances.filter(a => a.employeeId === employeeId), // all advance entries (for list)
+      salaryPayments: salaryPayments.filter(p => p.employeeId === employeeId), // all payments (for history)
       otRecords,
       halfDayRecords,
       customPaymentRecords,
@@ -182,11 +196,23 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
             Database Connected
           </div>
           
-          {userRole === 'viewer' && (
-            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-              View Only
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            <label className="flex items-center text-sm text-gray-600 gap-2">
+              <input
+                type="checkbox"
+                checked={includeAllHistory}
+                onChange={(e) => setIncludeAllHistory(e.target.checked)}
+                className="accent-indigo-600"
+              />
+              Include all history in balance
+            </label>
+
+            {userRole === 'viewer' && (
+              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                View Only
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -329,6 +355,18 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-semibold text-blue-900 mb-3">Record Salary Payment</h4>
               <form onSubmit={handleSalaryPayment} className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      disabled
+                      checked={false}
+                      className="accent-indigo-600"
+                    />
+                    Payments do not auto-settle advances. To apply payments to advances, review history manually.
+                  </label>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-blue-700 mb-1">
