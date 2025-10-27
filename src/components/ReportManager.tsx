@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Employee, AttendanceRecord, Advance } from '../types';
 import { formatCurrency } from '../utils/dateUtils';
-import { FileText, Download, Calendar, User, Search, Database } from 'lucide-react';
+import { FileText, Download, User, Search, Database } from 'lucide-react';
 import { useFirestore } from '../hooks/useFirestore';
 import { pdf } from '@react-pdf/renderer';
 import ProfessionalPayslipPDF from './ProfessionalPayslipPDF';
