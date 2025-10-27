@@ -34,26 +34,27 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
 
     if (!employee) return null;
 
-    // Get all attendance records for the current week
-    const weekRecords = attendance.filter(a => 
-      a.employeeId === employeeId && 
-      a.weekStart === currentWeek
-    );
-    
+    // Choose attendance records based on selected scope.
+    // If includeAllHistory is true we aggregate across all attendance for the employee,
+    // otherwise only the current week is considered.
+    const scopeAttendance = includeAllHistory
+      ? attendance.filter(a => a.employeeId === employeeId)
+      : attendance.filter(a => a.employeeId === employeeId && a.weekStart === currentWeek);
+
     // Calculate total wages including OT and custom amounts
     let totalWages = 0;
     let baseWages = 0;
     let additionalEarnings = 0;
     let daysWorked = 0;
 
-    weekRecords.forEach(record => {
+    scopeAttendance.forEach(record => {
       if (record.present) {
         // Base daily wage
         const baseWage = employee.dailyWage;
         baseWages += baseWage;
         daysWorked++;
       }
-      
+
       // Add custom amount (for OT, half-day, or custom payments)
       if (record.customAmount) {
         additionalEarnings += record.customAmount;
@@ -91,10 +92,10 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
     // Remaining balance = Final payment - salary payments (in selected scope)
     const remainingBalance = finalPayment - salaryPaymentsTotal;
     
-    // Get OT and custom details (for current week only)
-    const otRecords = weekRecords.filter(record => record.customType === 'ot');
-    const halfDayRecords = weekRecords.filter(record => record.customType === 'half-day');
-    const customPaymentRecords = weekRecords.filter(record => record.customType === 'custom');
+  // Get OT and custom details (respecting selected scope)
+  const otRecords = scopeAttendance.filter(record => record.customType === 'ot');
+  const halfDayRecords = scopeAttendance.filter(record => record.customType === 'half-day');
+  const customPaymentRecords = scopeAttendance.filter(record => record.customType === 'custom');
     
     return {
       employee,
@@ -112,7 +113,8 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({
       otRecords,
       halfDayRecords,
       customPaymentRecords,
-      weekRecords
+      // include weekRecords separately for UI components that still need week-specific view
+      weekRecords: attendance.filter(a => a.employeeId === employeeId && a.weekStart === currentWeek)
     };
   };
 
